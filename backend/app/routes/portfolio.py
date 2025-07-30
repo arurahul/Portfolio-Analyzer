@@ -11,7 +11,7 @@ portfolio_bp=Blueprint("portfolio","__name__")
 @jwt_required
 def get_client_data():
     claims=get_jwt()
-    if claims.get("department")!="Waelth Department":
+    if claims.get("department")!="Wealth Department":
         return jsonify({"message":"Unautorixed Department"}),403
     return jsonify({"data":"Confidential client portfolio"})
 

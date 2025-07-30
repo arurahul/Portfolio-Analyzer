@@ -42,7 +42,20 @@ def register():
         print(f"Registration error: {str(e)}")  # Check your terminal for this
         return jsonify({"error": "Registration failed", "details": str(e)}), 500
 
-
+@auth_bp.route('/2fa-verify', methods=['POST'])
+@jwt_required()
+def verify_2fa():
+    data = request.get_json()
+    code = data.get('code')
+    if code=='123456':
+        return jsonify({
+            "message":"2FA verification successful",
+        }),200
+    else:
+        return jsonify({
+            "message":"Invalid 2FA code",
+        }),401
+        
 @auth_bp.route('/login', methods=['POST'])
 @limiter.limit("5/minute")
 def login():

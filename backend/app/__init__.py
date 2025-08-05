@@ -22,6 +22,8 @@ def create_app(config_class=DevelopmentConfig):
     from .models import User
     from .routes.auth import auth_bp
     from .routes.portfolio import portfolio_bp
+    from .routes.client import client_bp
     app.register_blueprint(auth_bp)
+    app.register_blueprint(client_bp)
     app.register_blueprint(portfolio_bp,url_prefix="/api")
     return app

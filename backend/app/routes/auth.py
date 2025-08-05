@@ -23,7 +23,8 @@ def register():
     try:
         new_user = User(
             email=data['email'],
-            created_at=datetime.utcnow()
+            created_at=datetime.utcnow(),
+            clearance=data.get('clearance', 'Intern')
         )
         new_user.set_password(data['password'])
         
@@ -83,7 +84,7 @@ def login():
     access_token = create_access_token(identity=user.id,
         additional_claims={
         "department": "Wealth Management",  # JPMC org unit
-        "clearance": "Tier2",               # Access tier (Tier1=Admin, Tier2=Advisor)
+        "clearance": user.clearance,               # Access tier (Tier1=Admin, Tier2=Advisor)
         "location": "NYC"                   # Physical office restriction
     })
     return jsonify(access_token=access_token)

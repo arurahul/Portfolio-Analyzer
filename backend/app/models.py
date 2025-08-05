@@ -8,6 +8,7 @@ class User(db.Model):
     email=db.Column(db.String(255),nullable=False,unique=True)
     password_hash = db.Column(db.String(255), nullable=False)  # Never store plaintext!
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Audit: Registration time
+    clearance=db.Column(db.String(50),default="Intern")
     last_login = db.Column(db.DateTime)  # Audit: Last successful login
     last_activity = db.Column(db.DateTime)  # For session timeout
     failed_attempts = db.Column(db.Integer, default=0)  # Security: Brute force protection

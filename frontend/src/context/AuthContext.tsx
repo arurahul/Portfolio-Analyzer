@@ -3,11 +3,15 @@
 
     type User = { email: string; department: string; clearance: string };
 
-    export const AuthContext = createContext<{
+    type AuthContextType = {
     user: User | null;
+    tempToken: string | null;        // Token before 2FA
     login: (email: string, password: string) => Promise<void>;
+    verify2FA: (code: string) => Promise<void>;
     logout: () => void;
-    } | null>(null);
+    };
+
+    export const AuthContext = createContext<AuthContextType | null>(null);
 
     export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
@@ -45,6 +49,7 @@
         const decoded = jwtDecode<User>(tempToken);
         setUser(decoded);
         localStorage.setItem('accessToken', tempToken);
+        localStorage.setItem('clearance', decoded.clearance);
         setTempToken(null); // Clear temp token
         
     }
@@ -55,7 +60,7 @@
     };
 
     return (
-        <AuthContext.Provider value={{ user, login, logout }}>
+        <AuthContext.Provider value={{ user, login, logout,verify2FA,tempToken }}>
         {children}
         </AuthContext.Provider>
     );

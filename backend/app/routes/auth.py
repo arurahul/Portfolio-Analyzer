@@ -24,7 +24,8 @@ def register():
         new_user = User(
             email=data['email'],
             created_at=datetime.utcnow(),
-            clearance=data.get('clearance', 'Intern')
+            clearance=data.get('clearance', 'Intern'),
+            department=data.get('department','')
         )
         new_user.set_password(data['password'])
         

@@ -12,4 +12,4 @@ api.interceptors.request.use((config) => {
 });
 
 export const getClientData = () => api.get('/client-data');
-export const getSystemSettings = () => api.get('/system-settings');
+export const getSystemSettings = () => api.get('/system-setting');

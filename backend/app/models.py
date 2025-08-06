@@ -9,6 +9,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(255), nullable=False)  # Never store plaintext!
     created_at = db.Column(db.DateTime, default=datetime.utcnow)  # Audit: Registration time
     clearance=db.Column(db.String(50),default="Intern")
+    department=db.Column(db.String(50),default="")
     last_login = db.Column(db.DateTime)  # Audit: Last successful login
     last_activity = db.Column(db.DateTime)  # For session timeout
     failed_attempts = db.Column(db.Integer, default=0)  # Security: Brute force protection
@@ -44,3 +45,14 @@ class User(db.Model):
 
     def __repr__(self):
         return f'<User {self.email}>'
+
+class PortfolioRecords(db.Model):
+    __tablename__ = 'portfolio_records'
+    id=db.Column(db.Integer,primary_key=True,nullable=False)
+    user_id=db.Column(db.Integer,db.ForeignKey("users.id"),nullable=False)
+    asset_name = db.Column(db.String(255), nullable=False)
+    asset_type = db.Column(db.String(100))
+    quantity = db.Column(db.Float)
+    value = db.Column(db.Float)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    user=db.relationship('User',backref="portfolio_records")

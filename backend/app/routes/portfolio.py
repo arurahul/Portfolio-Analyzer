@@ -7,26 +7,50 @@ from datetime import datetime
 from ..extensions import db, limiter
 from ..models import User, PortfolioRecords
 from ..utils.auth import clearance_required
+from ..schemas.portfolio_schemas import PortfoliosRecordSchema
+from ..services.portfolio_service import PortfolioService
 
-portfolio_bp=Blueprint("portfolio","__name__")
 
-@portfolio_bp.route("/client_data", methods=['GET'],endpoint="portfolio_client_data")
-@jwt_required
+
+portfolio_bp = Blueprint("portfolio", __name__)
+portfolio_schema = PortfoliosRecordSchema(many=True)
+
+
+# -------------------- CLIENT: Get own portfolio data --------------------
+@portfolio_bp.route("/client_data", methods=['GET'], endpoint="portfolio_client_data")
+@jwt_required()
 def get_portfolio_client_data():
-    claims=get_jwt()
-    if claims.get("department")!="Wealth Department":
-        return jsonify({"message":"Unautorixed Department"}),403
-    return jsonify({"data":"Confidential client portfolio"})
-
-@portfolio_bp.route("/system-setting", methods=['POST'])
-@jwt_required
-@clearance_required("Tier 1") #Only Tier 1 gets the access
-def system_settings():
     claims = get_jwt()
-    if claims.get("clearance") != "Tier1":
+    if claims.get("department") != "Wealth Department":
+        return jsonify({"message": "Unauthorized Department"}), 403
+
+    user_id = claims.get("sub")
+    records = PortfolioService.get_records_by_user(user_id)
+    return jsonify({"data": portfolio_schema.dump(records)})
+
+
+# -------------------- ADMIN: Get all portfolio data --------------------
+@portfolio_bp.route("/portfolio_records", methods=['GET'], endpoint="portfolio_records")
+@jwt_required()
+@clearance_required("Tier 1")
+def get_portfolio_records():
+    claims = get_jwt()
+    if claims.get("clearance") != "Tier 1":
         return jsonify({"message": "Admin Access Required"}), 403
+
+    records = PortfolioService.get_all_records()
+    return jsonify({"data": portfolio_schema.dump(records)})
+
+
+# -------------------- ADMIN: System settings --------------------
+@portfolio_bp.route("/system-setting", methods=['POST'])
+@jwt_required()
+@clearance_required("Tier 1")
+def system_settings():
     return jsonify({"data": "System Settings"})
 
+
+# -------------------- Upload CSV (Client) --------------------
 @portfolio_bp.route("/upload-csv", methods=["POST"])
 @jwt_required()
 def upload_csv():
@@ -43,21 +67,13 @@ def upload_csv():
     stream = StringIO(file.stream.read().decode("UTF8"), newline=None)
     reader = csv.DictReader(stream)
     
-    user_id=get_jwt_identity()
-    records=[]
+    user_id = get_jwt_identity()
+    records = []
     for row in reader:
-        record=PortfolioRecords(
-            user_id=user_id,
-            asset_name=row.get("asset_name"),
-            asset_type=row.get("asset_type"),
-            quantity=float(row.get("quantity",0)),
-            value=float(row.get("value"),0),
-        )
-        records.append(record)
+        records.append(PortfolioService.create_record_from_row(row, user_id))
+
     try:
-        db.session.bulk_save_objects(records)
-        db.session.commit()
+        PortfolioService.add_records(records)
         return jsonify({"message": f"{len(records)} records uploaded successfully"}), 201
     except Exception as e:
-        db.session.rollback()
         return jsonify({"error": str(e)}), 500

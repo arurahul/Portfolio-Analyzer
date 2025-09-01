@@ -10,7 +10,7 @@ from ..utils.auth import clearance_required
 from ..schemas.portfolio_schemas import PortfoliosRecordSchema
 from ..services.portfolio_service import PortfolioService
 
-
+import random
 
 portfolio_bp = Blueprint("portfolio", __name__)
 portfolio_schema = PortfoliosRecordSchema(many=True)
@@ -27,6 +27,38 @@ def get_portfolio_client_data():
     user_id = claims.get("sub")
     records = PortfolioService.get_records_by_user(user_id)
     return jsonify({"data": portfolio_schema.dump(records)})
+
+# -------------------- Admin: Update a portfolio data --------------------
+@portfolio_bp.route("/portfolio-record/<int:record_id>", methods=['PUT'])
+@jwt_required()
+def update_portfolio_record(record_id):
+    claims = get_jwt()
+    user_id = claims.get("sub")
+    row=request.get_json()
+    quantity=float(row.get("quantity"))
+    value=float(row.get("value"))
+    updated_record=PortfolioService.update_records(record_id=record_id,user_id=user_id,quanity=quantity,value=value)
+
+    if not updated_record:
+        return jsonify({"error": "Record not found or unauthorized"}), 404
+    
+    return jsonify({"message":"Record updated Successfully"})
+
+# -------------------- ADMIN: Delete a portfolio data --------------------
+@portfolio_bp.route("/portfolio-record/<int:record_id>", methods=['DELETE'])
+@jwt_required()
+def delete_portfolio_record(record_id):
+    claims = get_jwt()
+    if claims.get("department") != "Wealth Department":
+        return jsonify({"message": "Unauthorized Department"}), 403
+
+    user_id = claims.get("sub")
+    delete_record=PortfolioService.delete_records(record_id=record_id,user_id=user_id)
+
+    if not delete_record:
+        return jsonify({"error": "Record not found or unauthorized"}), 404
+    
+    return jsonify({"message":"Record deleted Successfully"})
 
 
 # -------------------- ADMIN: Get all portfolio data --------------------
@@ -75,5 +107,17 @@ def upload_csv():
     try:
         PortfolioService.add_records(records)
         return jsonify({"message": f"{len(records)} records uploaded successfully"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@portfolio_bp.route("/analytics",methods=["GET"])
+@jwt_required
+def get_portfolio_anlytics():
+    user_id=get_jwt_identity()
+    try:
+        analytics=PortfolioService.get_alalytics(user_id=user_id)
+        return ({
+            "data":analytics
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500

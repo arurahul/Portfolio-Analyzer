@@ -5,7 +5,7 @@ import {useNavigate} from 'react-router-dom';
 export default function TwoFactorAuth(){
 
     return (
-        <div style={{passign:'20px'}}>
+        <div style={{padding:'20px'}}>
            
         </div>
     )

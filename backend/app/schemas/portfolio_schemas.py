@@ -1,4 +1,4 @@
-from marshmallow import Schemas, fields, validate
+from marshmallow import Schema,fields
 
 class PortfoliosRecordSchema(Schema):
     id=fields.Int(dump_only=True)

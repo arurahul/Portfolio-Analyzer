@@ -1,7 +1,7 @@
 from ..models import PortfolioRecords
 from ..extensions import db
-
-
+from flask import jsonify
+import random
 class PortfolioService:
 
     @staticmethod
@@ -30,3 +30,68 @@ class PortfolioService:
         """Bulk insert portfolio records."""
         db.session.bulk_save_objects(records)
         db.session.commit()
+        
+        
+    @staticmethod
+    def update_records(record_id,user_id,quanity,value):
+        """Update portfolio record."""
+        record=PortfolioRecords.query.filter(id=record_id,user_id=user_id)
+        if not record:
+            return None
+        if quanity is not None:
+            record.quantity=quanity
+        if value is not None:
+            record.value=value
+        db.seesion.commit()
+        return record
+    
+    @staticmethod
+    def delete_records(record_id,user_id):
+        """Delete portfolio record."""
+        record=PortfolioRecords.query.filter(id=record_id,user_id=user_id)
+        if not record:
+            return None
+        db.session.delete(record_id)
+        db.seesion.commit()
+        return True
+        
+    @staticmethod
+    def get_alalytics(user_id):
+        records=(PortfolioRecords.query.filter_by(user_id=user_id).order_by(PortfolioRecords.date.asc()).all())
+    
+        if not records:
+            return ({
+                "message":"No Portfolio records found"
+            }),404
+        latest_records={}
+        for r in records:
+            latest_records[r.asset_name] = r
+        
+        total_value=sum(r.value for r in latest_records.values())
+        
+        risk_score=round(random.uniform(1,10),2)
+        
+        allocation = {}
+        for r in latest_records.values():
+            allocation[r.asset_type] = allocation.get(r.asset_type, 0) + r.value
+        allocation_data = [{"name": k, "value": v} for k, v in allocation.items()]
+        
+        trend = []
+        grouped_by_date = {}
+        for r in records:
+            date_str = r.date.strftime("%Y-%m-%d")
+            grouped_by_date[date_str] = grouped_by_date.get(date_str, 0) + r.value
+        
+        trend = [{"date": d, "value": grouped_by_date[d]} for d in sorted(grouped_by_date.keys())]
+            
+        holdings_sorted = sorted(latest_records.values(), key=lambda x: x.value, reverse=True)
+        top_holdings = [{"name": r.asset_name, "value": r.value} for r in holdings_sorted[:5]]
+        
+        return jsonify({
+            "totalValue": total_value,
+            "riskScore": risk_score,
+            "allocation": allocation_data,
+            "trend": trend,
+            "topHoldings": top_holdings,
+        })
+    

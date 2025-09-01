@@ -1,5 +1,6 @@
 import {useState,useEffect} from "react";
-import axios from '../services/api';
+import api from '../services/api';
+import { useNavigate } from "react-router-dom";
 
 export default function Register()
 {
@@ -9,13 +10,13 @@ export default function Register()
     const [error,setError]=useState("")
     const [clearance,setClearance]=useState("Intern")
     const [department, setDepartment] = useState('');
-
+    const navigate = useNavigate();
     const handleRegister=(e: React.FormEvent)=>{
         e.preventDefault()
         setError("")
         setSuccess("")
         try{
-            const response = await axios.post('/register', {
+            const response = api.post('/register', {
                 email,
                 password,
                 clearance,
@@ -26,6 +27,7 @@ export default function Register()
             setPassword('');
             setClearance('Intern');
             setDepartment('');
+            navigate('/login');
         }
         catch(err: any)
         {

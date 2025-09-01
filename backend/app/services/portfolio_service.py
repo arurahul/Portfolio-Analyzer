@@ -1,6 +1,7 @@
 from ..models import PortfolioRecords
 from ..extensions import db
 from flask import jsonify
+from datetime import datetime
 import random
 class PortfolioService:
 
@@ -56,9 +57,22 @@ class PortfolioService:
         return True
         
     @staticmethod
-    def get_alalytics(user_id):
-        records=(PortfolioRecords.query.filter_by(user_id=user_id).order_by(PortfolioRecords.date.asc()).all())
-    
+    def get_alalytics(user_id,start_dates,end_dates):
+        if start_dates:
+            try:
+                start_date = datetime.strptime(start_dates, "%Y-%m-%d")
+                query = query.filter(PortfolioRecords.date >= start_date)
+            except ValueError:
+                return jsonify({"error": "Invalid start_date format, use YYYY-MM-DD"}), 400
+
+        if end_dates:
+            try:
+                end_date = datetime.strptime(end_dates, "%Y-%m-%d")
+                query = query.filter(PortfolioRecords.date <= end_date)
+            except ValueError:
+                return jsonify({"error": "Invalid end_date format, use YYYY-MM-DD"}), 400
+
+        records = query.order_by(PortfolioRecords.date.asc()).all()
         if not records:
             return ({
                 "message":"No Portfolio records found"
@@ -86,12 +100,16 @@ class PortfolioService:
             
         holdings_sorted = sorted(latest_records.values(), key=lambda x: x.value, reverse=True)
         top_holdings = [{"name": r.asset_name, "value": r.value} for r in holdings_sorted[:5]]
-        
+          # Example risk per asset for heatmap or table
+        risk_per_asset = [{"asset_name": r.asset_name, "risk_score": round(random.uniform(1,10),2)} for r in latest_records.values()]
+    
         return jsonify({
             "totalValue": total_value,
             "riskScore": risk_score,
             "allocation": allocation_data,
-            "trend": trend,
+            "history": trend,
             "topHoldings": top_holdings,
+            "risk": risk_per_asset
+
         })
     

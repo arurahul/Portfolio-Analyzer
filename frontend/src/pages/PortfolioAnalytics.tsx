@@ -1,5 +1,6 @@
-    import React, { useEffect, useState } from "react";
+    import React, { useEffect, useState, useContext } from "react";
     import { getPortfolioAnalytics } from "../services/api";
+    import { AuthContext } from "../context/AuthContext";
     import {
     PieChart, Pie, Cell, Tooltip, Legend,
     LineChart, Line, XAxis, YAxis, CartesianGrid
@@ -7,12 +8,17 @@
 
     export default function PortfolioAnalytics() {
     const [analytics, setAnalytics] = useState<any | null>(null);
+    const { user, refreshAccessToken } = useContext(AuthContext);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
+
+    const isFinanceDept = user?.department === "Finance";
+    const isClearanceHigh = Number(user?.clearance) >= 4;
+    const isTier1 = user?.clearance === "Tier1";
 
     const fetchAnalytics = async (start?: string, end?: string) => {
         setLoading(true);
@@ -25,9 +31,14 @@
         const res = await getPortfolioAnalytics(params);
         setAnalytics(res.data);
         } catch (err: any) {
-        console.error(err);
-        setError(err.response?.data?.error || "Failed to fetch analytics");
-        setAnalytics(null);
+        if (err.response?.status === 401) {
+            const newToken = await refreshAccessToken();
+            if (newToken) fetchAnalytics();
+        } else {
+            console.error("Failed to fetch analytics", err);
+            setAnalytics(null);
+            setError("Access denied or data unavailable");
+        }
         } finally {
         setLoading(false);
         }
@@ -39,6 +50,17 @@
 
     if (loading) return <p>Loading analytics...</p>;
     if (error) return <p style={{ color: "red" }}>{error}</p>;
+
+    // 🔒 RBAC Guard: only Finance + Clearance ≥4 can see full analytics
+    if (!isFinanceDept || !isClearanceHigh) {
+        return (
+        <div style={{ padding: 20 }}>
+            <h3>🚫 Restricted Access</h3>
+            <p>You do not have permission to view portfolio analytics.</p>
+        </div>
+        );
+    }
+
     if (!analytics) return <p>No analytics available</p>;
 
     return (
@@ -147,6 +169,14 @@
             </tbody>
             </table>
         </div>
+
+        {/* Extra Admin-Only Section */}
+        {isTier1 && (
+            <div style={{ marginTop: 20, padding: 15, border: "1px solid #666" }}>
+            <h4>🛠 Admin Insights</h4>
+            <p>Additional deep-dive analytics only visible to Tier1 users.</p>
+            </div>
+        )}
         </div>
     );
     }

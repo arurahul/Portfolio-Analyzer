@@ -1,10 +1,10 @@
-    import { useContext, useState, useEffect } from 'react';
+    import { useContext, useState, useEffect } from "react";
     import { Link } from "react-router-dom";
-    import { AuthContext } from '../context/AuthContext';
-    import { getClientPortfolioData } from '../services/api';
+    import { AuthContext } from "../context/AuthContext";
+    import { getClientPortfolioData } from "../services/api";
 
     export default function Dashboard() {
-    const {user,logout}=useContext(AuthContext);
+    const { user, logout, refreshAccessToken } = useContext(AuthContext);
     const [clientData, setClientData] = useState<{
         portfolioValue: number;
         riskScore: number;
@@ -12,20 +12,26 @@
         holdings: string[];
     } | null>(null);
 
-    const isFinanceDept = user?.department === 'Finance';
-    const isClearanceHigh = Number(user?.clearance) >= 4;
-    const isTier1 = user?.clearance === "Tier1";
+    // RBAC rules
+    const isFinanceDept = user?.department === "Finance";
+    const clearanceLevel = Number(user?.clearance) || 0;
+    const isClearanceHigh = clearanceLevel >= 4;
+    const isAdmin = clearanceLevel >= 5;
 
     useEffect(() => {
         async function fetchData() {
         try {
-            const response = await getClientPortfolioData();
-            setClientData(response.data);
-        } catch (error) {
-            alert('Failed to load portfolio data');
+            const res = await getClientPortfolioData();
+            setClientData(res.data);
+        } catch (err: any) {
+            if (err.response?.status === 401) {
+            const newToken = await refreshAccessToken();
+            if (newToken) fetchData(); // Retry after refresh
+            } else {
+            alert("Failed to load portfolio data");
+            }
         }
         }
-
         fetchData();
     }, []);
 
@@ -33,14 +39,26 @@
         <div className="dashboard-container">
         <div className="dashboard-card">
             <h2>Welcome, {user?.email}</h2>
-            <p><strong>Department:</strong> {user?.department}</p>
-            <p><strong>Clearance:</strong> {user?.clearance}</p>
+            <p>
+            <strong>Department:</strong> {user?.department}
+            </p>
+            <p>
+            <strong>Clearance:</strong> {user?.clearance}
+            </p>
 
+            {/* Portfolio Data */}
             {clientData ? (
             <div className="data-section">
-                <p><strong>Portfolio Value:</strong> ${clientData.portfolioValue.toLocaleString()}</p>
-                <p><strong>Risk Score:</strong> {clientData.riskScore}</p>
-                <p><strong>Last Updated:</strong> {clientData.lastUpdated}</p>
+                <p>
+                <strong>Portfolio Value:</strong> $
+                {clientData.portfolioValue.toLocaleString()}
+                </p>
+                <p>
+                <strong>Risk Score:</strong> {clientData.riskScore}
+                </p>
+                <p>
+                <strong>Last Updated:</strong> {clientData.lastUpdated}
+                </p>
                 <div>
                 <strong>Holdings:</strong>
                 <ul>
@@ -49,7 +67,6 @@
                     ))}
                 </ul>
                 </div>
-                {/* Link to new Portfolio Dashboard */}
                 <Link to="/portfolio" className="btn btn-primary mt-3">
                 📂 Go to Portfolio Dashboard
                 </Link>
@@ -58,6 +75,7 @@
             <p>Loading portfolio data...</p>
             )}
 
+            {/* RBAC Sections */}
             {isFinanceDept && (
             <div className="finance-section">
                 <h4>Finance Tools</h4>
@@ -72,7 +90,7 @@
             </div>
             )}
 
-            {isTier1 && (
+            {isAdmin && (
             <div className="admin-section">
                 <h4>Admin Tools</h4>
                 <Link to="/settings" className="settings-link">
@@ -81,7 +99,9 @@
             </div>
             )}
 
-            <button className="logout-btn" onClick={logout}>Logout</button>
+            <button className="logout-btn" onClick={logout}>
+            Logout
+            </button>
         </div>
         </div>
     );

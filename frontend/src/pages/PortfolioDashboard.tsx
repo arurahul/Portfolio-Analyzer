@@ -1,21 +1,22 @@
-    import React, { useState, useEffect } from "react";
-    import { getAllPortfolioRecords,uploadPortfolioCSV, updatePortfolioRecord, deletePortfolioRecord, getPortfolioAnalytics } from "../services/api";
+    import React, { useState, useEffect, useContext } from "react";
+    import { getAllPortfolioRecords, uploadPortfolioCSV, updatePortfolioRecord, deletePortfolioRecord, getPortfolioAnalytics } from "../services/api";
     import {
     PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line
+    BarChart, Bar, XAxis, YAxis, CartesianGrid
     } from "recharts";
+    import { AuthContext } from "../context/AuthContext"
 
     export default function PortfolioDashboard() {
-    const [file, setFile] = useState(null);
+    const { user } = useContext(AuthContext); // ✅ Access logged-in user & role
+    const [file, setFile] = useState<File | null>(null);
     const [message, setMessage] = useState("");
-    const [records, setRecords] = useState([]);
-    const [editRow, setEditRow] = useState(null);
+    const [records, setRecords] = useState<any[]>([]);
+    const [editRow, setEditRow] = useState<number | null>(null);
     const [editData, setEditData] = useState({ quantity: "", value: "" });
-    const [analytics,setAnalytics]=useState<any | null>(null)
+    const [analytics, setAnalytics] = useState<any | null>(null);
 
     // Load portfolio records on mount
-    useEffect(() => 
-    {
+    useEffect(() => {
         loadData();
     }, []);
 
@@ -30,15 +31,18 @@
         console.error("Error fetching records/analytics", err);
         }
     };
-    const diversificationData = analytics
-    ? Object.entries(analytics.diversification_breakdown).map(([stock, value]) => ({
-        name: stock,
-        value: value,
-        }))
-    : [];
 
-    const handleFileChange = (e: any) => {
+    const diversificationData = analytics
+        ? Object.entries(analytics.diversification_breakdown).map(([stock, value]) => ({
+            name: stock,
+            value: value,
+        }))
+        : [];
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files) {
         setFile(e.target.files[0]);
+        }
     };
 
     const handleUpload = async () => {
@@ -89,73 +93,83 @@
         console.error("Delete failed", err);
         }
     };
-    const stockValueData = records.map((record) => ({
-    name: record.stock_name,
-    value: record.value,
+
+    const stockValueData = records.map((record: any) => ({
+        name: record.stock_name,
+        value: record.value,
     }));
+
     return (
         <div className="container mt-4">
         <h3>Portfolio Management</h3>
 
-        {/* CSV Upload Section */}
-        <div className="mb-4 p-3 border rounded">
+        {/* CSV Upload Section (only Analyst/Admin) */}
+        {(user?.role === "analyst" || user?.role === "admin") && (
+            <div className="mb-4 p-3 border rounded">
             <h5>Upload Portfolio CSV</h5>
             <input type="file" accept=".csv" onChange={handleFileChange} />
             <button className="btn btn-primary mt-2" onClick={handleUpload}>
-            Upload
+                Upload
             </button>
             <p className="mt-2">{message}</p>
-        </div>
+            </div>
+        )}
+
         {/* Analytics Section */}
         {analytics && (
-        <div className="mb-4 p-3 border rounded">
+            <div className="mb-4 p-3 border rounded">
             <h5>Portfolio Insights</h5>
             <p><strong>Total Value:</strong> ${analytics.total_value}</p>
             <p><strong>Diversification:</strong> {analytics.diversification}%</p>
             <p><strong>Risk Level:</strong> {analytics.risk_level}</p>
-        </div>
+            </div>
         )}
+
         {/* Diversification Pie Chart */}
         {diversificationData.length > 0 && (
-        <div className="mb-4 p-3 border rounded">
+            <div className="mb-4 p-3 border rounded">
             <h5>Portfolio Diversification</h5>
             <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
+                <PieChart>
                 <Pie
-                data={diversificationData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                fill="#8884d8"
-                label
+                    data={diversificationData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    fill="#8884d8"
+                    label
                 >
-                {diversificationData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][index % 4]} />
-                ))}
+                    {diversificationData.map((entry, index) => (
+                    <Cell
+                        key={`cell-${index}`}
+                        fill={["#0088FE", "#00C49F", "#FFBB28", "#FF8042"][index % 4]}
+                    />
+                    ))}
                 </Pie>
                 <Tooltip />
                 <Legend />
-            </PieChart>
+                </PieChart>
             </ResponsiveContainer>
-        </div>
+            </div>
         )}
+
         {/* Stock Values Bar Chart */}
         {stockValueData.length > 0 && (
-        <div className="mb-4 p-3 border rounded">
+            <div className="mb-4 p-3 border rounded">
             <h5>Stock Values (Bar Chart)</h5>
             <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={stockValueData}>
+                <BarChart data={stockValueData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="value" fill="#82ca9d" />
-            </BarChart>
+                </BarChart>
             </ResponsiveContainer>
-        </div>
+            </div>
         )}
 
         {/* Table Section */}
@@ -166,11 +180,11 @@
                 <th>Stock</th>
                 <th>Quantity</th>
                 <th>Value</th>
-                <th>Actions</th>
+                {(user?.role === "admin") && <th>Actions</th>}
             </tr>
             </thead>
             <tbody>
-            {records.map((record) => (
+            {records.map((record: any) => (
                 <tr key={record.id}>
                 <td>{record.stock_name}</td>
                 <td>
@@ -199,44 +213,47 @@
                     record.value
                     )}
                 </td>
-                <td>
+                {/* Actions only for Admin */}
+                {user?.role === "admin" && (
+                    <td>
                     {editRow === record.id ? (
-                    <>
+                        <>
                         <button
-                        className="btn btn-success btn-sm me-2"
-                        onClick={() => handleSave(record.id)}
+                            className="btn btn-success btn-sm me-2"
+                            onClick={() => handleSave(record.id)}
                         >
-                        Save
+                            Save
                         </button>
                         <button
-                        className="btn btn-secondary btn-sm"
-                        onClick={handleCancel}
+                            className="btn btn-secondary btn-sm"
+                            onClick={handleCancel}
                         >
-                        Cancel
+                            Cancel
                         </button>
-                    </>
+                        </>
                     ) : (
-                    <>
+                        <>
                         <button
-                        className="btn btn-primary btn-sm me-2"
-                        onClick={() => handleEditClick(record)}
+                            className="btn btn-primary btn-sm me-2"
+                            onClick={() => handleEditClick(record)}
                         >
-                        Edit
+                            Edit
                         </button>
                         <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => handleDelete(record.id)}
+                            className="btn btn-danger btn-sm"
+                            onClick={() => handleDelete(record.id)}
                         >
-                        Delete
+                            Delete
                         </button>
-                    </>
+                        </>
                     )}
-                </td>
+                    </td>
+                )}
                 </tr>
             ))}
             {records.length === 0 && (
                 <tr>
-                <td colspan="4" className="text-center">
+                <td colSpan={user?.role === "admin" ? 4 : 3} className="text-center">
                     No portfolio records found.
                 </td>
                 </tr>

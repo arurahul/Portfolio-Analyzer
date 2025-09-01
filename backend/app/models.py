@@ -14,6 +14,7 @@ class User(db.Model):
     last_activity = db.Column(db.DateTime)  # For session timeout
     failed_attempts = db.Column(db.Integer, default=0)  # Security: Brute force protection
     is_active = db.Column(db.Boolean, default=True)  # For account deactivation
+    is_admin = db.Column(db.Boolean, default=False)
     is_locked=db.Column(db.Boolean,default=False)
 
     # JPMC Password Policy (Minimum 10 chars, 1 upper, 1 digit, 1 special)

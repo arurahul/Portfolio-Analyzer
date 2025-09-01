@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity,create_refresh_token
 from datetime import datetime
 from ..extensions import db, limiter
 from ..models import User
@@ -82,13 +82,17 @@ def login():
         return jsonify({"error": "Account locked due to multiple failed login attempts"}), 401
         
     user.update_login_time()  # ✅ Uses the new helper method
-    access_token = create_access_token(identity=user.id,
+    access_token = create_access_token(
+        identity=user.id,
         additional_claims={
-        "department": "Wealth Management",  # JPMC org unit
+        "department": user.department,  # JPMC org unit
         "clearance": user.clearance,               # Access tier (Tier1=Admin, Tier2=Advisor)
         "location": "NYC"                   # Physical office restriction
-    })
-    return jsonify(access_token=access_token)
+    },
+        expires_delta=timedelta(minutes=15) 
+        )
+    refresh_token=create_refresh_token(identity=user.id)
+    return jsonify(access_token=access_token,refresh_token=refresh_token)
 
 @auth_bp.route('/protected', methods=['GET'])
 @jwt_required()
@@ -104,3 +108,23 @@ def protected():
         email=user.email,
         last_login=user.last_login.isoformat() if user.last_login else None
     ), 200
+
+@auth_bp.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)  # ✅ Requires refresh token
+def refresh():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+    if not user or not user.is_active:
+        return jsonify({"error": "Invalid refresh token"}), 401
+
+    # Issue new access token
+    access_token = create_access_token(
+        identity=user.id,
+        additional_claims={
+            "department": user.department,
+            "clearance": user.clearance,
+            "location": "NYC"
+        },
+        expires_delta=timedelta(minutes=15)
+    )
+    return jsonify(access_token=access_token)

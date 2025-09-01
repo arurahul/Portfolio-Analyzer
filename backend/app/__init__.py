@@ -23,7 +23,10 @@ def create_app(config_class=DevelopmentConfig):
     from .routes.auth import auth_bp
     from .routes.portfolio import portfolio_bp
     from .routes.client import client_bp
+    from .routes.admin import admin_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(client_bp)
-    app.register_blueprint(portfolio_bp,url_prefix="/api")
+    app.register_blueprint(admin_bp,url_prefix="/api")
+    app.register_blueprint(portfolio_bp,url_prefix="/admin")
+    
     return app

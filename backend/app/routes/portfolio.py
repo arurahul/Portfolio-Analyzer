@@ -114,8 +114,10 @@ def upload_csv():
 @jwt_required
 def get_portfolio_anlytics():
     user_id=get_jwt_identity()
+    start_date_str = request.args.get("start_date")
+    end_date_str = request.args.get("end_date")
     try:
-        analytics=PortfolioService.get_alalytics(user_id=user_id)
+        analytics=PortfolioService.get_alalytics(user_id=user_id,start_dates=start_date_str,end_dates=end_date_str)
         return ({
             "data":analytics
         })

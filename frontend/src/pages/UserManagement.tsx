@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { getUsers, deactivateUser, resetPassword, updateUser } from '../services/userService'
-
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../context/AuthContext';
+import { getUsers, deactivateUser, resetPassword, updateUser } from '../services/userService';
 
 export default function UserManagement() {
+    const { user } = useContext(AuthContext);
     const [users, setUsers] = useState<any[]>([]);
     const [filteredUsers, setFilteredUsers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -10,7 +11,9 @@ export default function UserManagement() {
     const [roleFilter, setRoleFilter] = useState("all");
 
     useEffect(() => {
-        fetchUsers();
+        if (user?.role === "admin") {
+            fetchUsers();
+        }
     }, []);
 
     async function fetchUsers() {
@@ -28,11 +31,6 @@ export default function UserManagement() {
     async function handleDeactivate(id: number) {
         await deactivateUser(id);
         fetchUsers();
-    }
-
-    async function handleResetPassword(id: number) {
-        await resetPassword(id);
-        alert("Password reset. Check email/logs.");
     }
 
     async function handleRoleChange(id: number, role: string) {
@@ -56,6 +54,16 @@ export default function UserManagement() {
 
         setFilteredUsers(filtered);
     }, [search, roleFilter, users]);
+
+    // 🔒 RBAC check
+    if (user?.role !== "admin") {
+        return (
+            <div className="container mt-4">
+                <h3>🚫 Access Denied</h3>
+                <p>You do not have permission to manage users.</p>
+            </div>
+        );
+    }
 
     if (loading) return <p>Loading users...</p>;
 
@@ -111,8 +119,7 @@ export default function UserManagement() {
                                 </td>
                                 <td>
                                     <span
-                                        className={`badge ${u.is_active ? "bg-success" : "bg-secondary"
-                                            }`}
+                                        className={`badge ${u.is_active ? "bg-success" : "bg-secondary"}`}
                                     >
                                         {u.is_active ? "Active" : "Inactive"}
                                     </span>
@@ -126,7 +133,14 @@ export default function UserManagement() {
                                     </button>
                                     <button
                                         className="btn btn-danger btn-sm"
-                                        onClick={() => handleResetPassword(u.id)}
+                                        onClick={() => {
+                                            const newPassword = prompt("Enter new password:");
+                                            if (newPassword) {
+                                                resetPassword(u.id, newPassword)
+                                                    .then(() => alert("Password reset successfully!"))
+                                                    .catch(() => alert("Failed to reset password"));
+                                            }
+                                        }}
                                     >
                                         Reset Password
                                     </button>

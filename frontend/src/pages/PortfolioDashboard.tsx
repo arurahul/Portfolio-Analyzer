@@ -5,6 +5,7 @@
     BarChart, Bar, XAxis, YAxis, CartesianGrid
     } from "recharts";
     import { AuthContext } from "../context/AuthContext"
+    import { Navigate } from "react-router-dom";
 
     export default function PortfolioDashboard() {
     const { user } = useContext(AuthContext); // ✅ Access logged-in user & role
@@ -15,6 +16,9 @@
     const [editData, setEditData] = useState({ quantity: "", value: "" });
     const [analytics, setAnalytics] = useState<any | null>(null);
 
+    if (!user || user.clearance !== "Tier2") {
+    return <Navigate to="/dashboard" replace />;
+    }
     // Load portfolio records on mount
     useEffect(() => {
         loadData();

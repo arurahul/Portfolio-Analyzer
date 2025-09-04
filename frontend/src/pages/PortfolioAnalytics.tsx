@@ -1,182 +1,122 @@
-    import React, { useEffect, useState, useContext } from "react";
-    import { getPortfolioAnalytics } from "../services/api";
-    import { AuthContext } from "../context/AuthContext";
-    import {
-    PieChart, Pie, Cell, Tooltip, Legend,
-    LineChart, Line, XAxis, YAxis, CartesianGrid
-    } from "recharts";
+    import { useEffect, useState } from "react";
+    import { Card, CardContent } from "@/components/ui/card";
+    import { Button } from "@/components/ui/button";
+    import { LineChart, Line, XAxis, YAxis, Tooltip, CartesianGrid, ResponsiveContainer } from "recharts";
+    import { Download } from "lucide-react";
+    import { AuthContext } from "../context/AuthContext";   // ✅ Import Auth Context
+    import { Navigate } from "react-router-dom";       // ✅ To redirect if no access
 
-    export default function PortfolioAnalytics() {
-    const [analytics, setAnalytics] = useState<any | null>(null);
-    const { user, refreshAccessToken } = useContext(AuthContext);
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
-
-    const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"];
-
-    const isFinanceDept = user?.department === "Finance";
-    const isClearanceHigh = Number(user?.clearance) >= 4;
-    const isTier1 = user?.clearance === "Tier1";
-
-    const fetchAnalytics = async (start?: string, end?: string) => {
-        setLoading(true);
-        setError("");
-        try {
-        const params: any = {};
-        if (start) params.start_date = start;
-        if (end) params.end_date = end;
-
-        const res = await getPortfolioAnalytics(params);
-        setAnalytics(res.data);
-        } catch (err: any) {
-        if (err.response?.status === 401) {
-            const newToken = await refreshAccessToken();
-            if (newToken) fetchAnalytics();
-        } else {
-            console.error("Failed to fetch analytics", err);
-            setAnalytics(null);
-            setError("Access denied or data unavailable");
-        }
-        } finally {
-        setLoading(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchAnalytics();
-    }, []);
-
-    if (loading) return <p>Loading analytics...</p>;
-    if (error) return <p style={{ color: "red" }}>{error}</p>;
-
-    // 🔒 RBAC Guard: only Finance + Clearance ≥4 can see full analytics
-    if (!isFinanceDept || !isClearanceHigh) {
-        return (
-        <div style={{ padding: 20 }}>
-            <h3>🚫 Restricted Access</h3>
-            <p>You do not have permission to view portfolio analytics.</p>
-        </div>
-        );
+    interface PerformanceData {
+    timestamp: string;
+    value: number;
+    return: number;
     }
 
-    if (!analytics) return <p>No analytics available</p>;
+    export default function PortfolioAnalytics() {
+    const [performance, setPerformance] = useState<PerformanceData[]>([]);
+    const [sharpe, setSharpe] = useState<number | null>(null);
+    const [correlation, setCorrelation] = useState<Record<string, Record<string, number>>>({});
+    
+    const { user } = useContext(AuthContext); // ✅ Access logged-in user & role
+
+    // RBAC Check → Only Tier3 can view
+    if (!user || user.clearance !== "Tier3") {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    // Fetch all analytics
+    useEffect(() => {
+        fetch("/api/portfolio-analytics/performance")
+        .then(res => res.json())
+        .then(data => setPerformance(data));
+
+        fetch("/api/portfolio-analytics/sharpe")
+        .then(res => res.json())
+        .then(data => setSharpe(data.sharpe_ratio));
+
+        fetch("/api/portfolio-analytics/correlation")
+        .then(res => res.json())
+        .then(data => setCorrelation(data));
+    }, []);
+
+    const downloadFile = (type: "csv" | "pdf") => {
+        window.open(`/api/portfolio-analytics/export/${type}`, "_blank");
+    };
 
     return (
-        <div className="analytics-container">
-        <h3>Portfolio Analytics</h3>
+        <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Portfolio Growth */}
+        <Card className="col-span-2">
+            <CardContent className="p-4">
+            <h2 className="text-xl font-semibold mb-4">Portfolio Growth Over Time</h2>
+            <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={performance}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="timestamp" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="value" stroke="#2563eb" strokeWidth={2} />
+                </LineChart>
+            </ResponsiveContainer>
+            </CardContent>
+        </Card>
 
-        {/* Date Filter */}
-        <div style={{ marginBottom: 20 }}>
-            <label>
-            Start Date:
-            <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                style={{ marginLeft: 10, marginRight: 20 }}
-            />
-            </label>
-            <label>
-            End Date:
-            <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                style={{ marginLeft: 10, marginRight: 20 }}
-            />
-            </label>
-            <button onClick={() => fetchAnalytics(startDate, endDate)}>Apply</button>
-        </div>
+        {/* Sharpe Ratio */}
+        <Card>
+            <CardContent className="p-4">
+            <h2 className="text-xl font-semibold mb-2">Sharpe Ratio</h2>
+            {sharpe !== null ? (
+                <p className="text-2xl font-bold">{sharpe}</p>
+            ) : (
+                <p className="text-gray-500">Loading...</p>
+            )}
+            </CardContent>
+        </Card>
 
-        {/* Summary Cards */}
-        <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
-            <div style={{ padding: 10, border: "1px solid #ccc", borderRadius: 5 }}>
-            <h5>Total Value</h5>
-            <p>${analytics.totalValue.toLocaleString()}</p>
-            </div>
-            <div style={{ padding: 10, border: "1px solid #ccc", borderRadius: 5 }}>
-            <h5>Risk Score</h5>
-            <p>{analytics.riskScore}</p>
-            </div>
-        </div>
+        {/* Correlation Matrix */}
+        <Card>
+            <CardContent className="p-4 overflow-x-auto">
+            <h2 className="text-xl font-semibold mb-2">Correlation Matrix</h2>
+            {Object.keys(correlation).length > 0 ? (
+                <table className="table-auto border-collapse border border-gray-300 text-sm">
+                <thead>
+                    <tr>
+                    <th className="border border-gray-300 px-2 py-1">Symbol</th>
+                    {Object.keys(correlation).map(sym => (
+                        <th key={sym} className="border border-gray-300 px-2 py-1">{sym}</th>
+                    ))}
+                    </tr>
+                </thead>
+                <tbody>
+                    {Object.keys(correlation).map(row => (
+                    <tr key={row}>
+                        <td className="border border-gray-300 px-2 py-1 font-medium">{row}</td>
+                        {Object.keys(correlation[row]).map(col => (
+                        <td key={col} className="border border-gray-300 px-2 py-1 text-center">
+                            {correlation[row][col].toFixed(2)}
+                        </td>
+                        ))}
+                    </tr>
+                    ))}
+                </tbody>
+                </table>
+            ) : (
+                <p className="text-gray-500">Loading...</p>
+            )}
+            </CardContent>
+        </Card>
 
-        {/* Allocation Pie Chart */}
-        <div style={{ width: 400, height: 300 }}>
-            <h5>Asset Allocation</h5>
-            <PieChart width={400} height={300}>
-            <Pie
-                data={analytics.allocation}
-                dataKey="value"
-                nameKey="asset_type"
-                cx="50%"
-                cy="50%"
-                outerRadius={100}
-                label
-            >
-                {analytics.allocation.map((entry: any, index: number) => (
-                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-            </Pie>
-            <Tooltip />
-            <Legend />
-            </PieChart>
-        </div>
-
-        {/* Historical Portfolio Line Chart */}
-        <div style={{ width: "100%", height: 300, marginTop: 20 }}>
-            <h5>Portfolio Value History</h5>
-            <LineChart width={600} height={300} data={analytics.history}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Line type="monotone" dataKey="portfolio_value" stroke="#8884d8" />
-            </LineChart>
-        </div>
-
-        {/* Risk Scores Table */}
-        <div style={{ marginTop: 20 }}>
-            <h5>Risk Scores</h5>
-            <table className="table table-bordered">
-            <thead>
-                <tr>
-                <th>Asset</th>
-                <th>Risk Score</th>
-                </tr>
-            </thead>
-            <tbody>
-                {analytics.risk.map((r: any, i: number) => (
-                <tr key={i}>
-                    <td>{r.asset_name}</td>
-                    <td>
-                    <div
-                        style={{
-                        background: `linear-gradient(to right, #FF0000, #00FF00)`,
-                        width: `${(r.risk_score / 10) * 100}%`,
-                        height: "20px",
-                        color: "#fff",
-                        textAlign: "center",
-                        }}
-                    >
-                        {r.risk_score}
-                    </div>
-                    </td>
-                </tr>
-                ))}
-            </tbody>
-            </table>
-        </div>
-
-        {/* Extra Admin-Only Section */}
-        {isTier1 && (
-            <div style={{ marginTop: 20, padding: 15, border: "1px solid #666" }}>
-            <h4>🛠 Admin Insights</h4>
-            <p>Additional deep-dive analytics only visible to Tier1 users.</p>
-            </div>
-        )}
+        {/* Export Buttons */}
+        <Card className="col-span-2">
+            <CardContent className="p-4 flex gap-4">
+            <Button onClick={() => downloadFile("csv")}>
+                <Download className="mr-2 h-4 w-4" /> Export CSV
+            </Button>
+            <Button onClick={() => downloadFile("pdf")}>
+                <Download className="mr-2 h-4 w-4" /> Export PDF
+            </Button>
+            </CardContent>
+        </Card>
         </div>
     );
     }

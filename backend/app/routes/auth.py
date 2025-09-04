@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity,create_refresh_token
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..extensions import db, limiter
 from ..models import User
 
@@ -24,8 +24,8 @@ def register():
         new_user = User(
             email=data['email'],
             created_at=datetime.utcnow(),
-            clearance=data.get('clearance', 'Intern'),
-            department=data.get('department','')
+            clearance=data.get('clearance', data['email']),
+            department=data.get('department',data['email'])
         )
         new_user.set_password(data['password'])
         
@@ -83,7 +83,7 @@ def login():
         
     user.update_login_time()  # ✅ Uses the new helper method
     access_token = create_access_token(
-        identity=user.id,
+        identity=str(user.id),
         additional_claims={
         "department": user.department,  # JPMC org unit
         "clearance": user.clearance,               # Access tier (Tier1=Admin, Tier2=Advisor)
@@ -91,7 +91,7 @@ def login():
     },
         expires_delta=timedelta(minutes=15) 
         )
-    refresh_token=create_refresh_token(identity=user.id)
+    refresh_token=create_refresh_token(identity=str(user.id))
     return jsonify(access_token=access_token,refresh_token=refresh_token)
 
 @auth_bp.route('/protected', methods=['GET'])

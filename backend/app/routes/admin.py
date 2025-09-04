@@ -1,13 +1,14 @@
 from flask import Blueprint,request,jsonify
-from models import User,db
-from utils.decorators import token_required,admin_required
-from utils.auth import clearance_required
+from app.models import User
+from app.extensions import db
+from app.utils.decorators import token_required,admin_required
+from app.utils.auth import clearance_required
 from werkzeug.security import generate_password_hash
 
 admin_bp=Blueprint("admin",__name__)
 
 #Get All users
-@admin_bp.route("/users",method=["GET"])
+@admin_bp.route("/users",methods=["GET"])
 @token_required
 @admin_required
 def getAllusers():
